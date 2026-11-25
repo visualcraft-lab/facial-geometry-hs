@@ -1,0 +1,31 @@
+name: Haskell CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.6.6'
+          cabal-version: '3.10.3.0'
+      - name: Check cabal file
+        run: cabal check
+      - name: Build and test
+        run: |
+          cabal build all
+          cabal test all --test-show-details=direct
+      - name: Build Haddock docs
+        run: cabal haddock all
+      - name: Verify sdist builds and passes tests
+        run: |
+          cabal sdist --output-directory=dist-sdist
+          cd dist-sdist
+          tar -xzf facial-geometry-0.1.0.0.tar.gz
+          cd facial-geometry-0.1.0.0
+          cabal test all --test-show-details=direct
