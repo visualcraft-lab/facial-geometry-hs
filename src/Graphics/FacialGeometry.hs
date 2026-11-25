@@ -5,10 +5,13 @@
 -- License     : MIT
 -- Maintainer  : wzzhang96@gmail.com
 --
--- Zero-dependency 2D facial landmark geometry helpers in top-down image
--- coordinates (X right, Y down).
+-- Pure Haskell helpers (no dependencies beyond @base@) for computing 2D facial
+-- landmark geometry metrics.
 --
--- Reference formulas and interactive calculator: <https://looksmaxscale.com/>
+-- All coordinates use top-down image space (@X@ increases to the right, @Y@
+-- increases downward) in consistent linear units (for example pixels or
+-- normalized image coordinates). Angles are returned in degrees, ratios are
+-- dimensionless, and scores lie in @[0, 1]@.
 module Graphics.FacialGeometry
   ( phi
   , Point2D (..)
@@ -25,11 +28,18 @@ module Graphics.FacialGeometry
 phi :: Double
 phi = 1.618033988749895
 
+-- | Internal check ensuring floating-point inputs are finite (neither NaN nor infinite).
+isFinite :: Double -> Bool
+isFinite x = not (isNaN x || isInfinite x)
+
 -- | A 2D facial landmark point in top-down image coordinates.
 data Point2D = Point2D
   { pointX :: !Double
   , pointY :: !Double
   } deriving (Eq, Show)
+
+isFinitePoint :: Point2D -> Bool
+isFinitePoint (Point2D x y) = isFinite x && isFinite y
 
 -- | A corresponding pair of left and right facial landmarks.
 data LandmarkPair = LandmarkPair
@@ -52,16 +62,20 @@ data GoldenRatioResult = GoldenRatioResult
   } deriving (Eq, Show)
 
 -- | Compute the medial-to-lateral canthal tilt angle in degrees.
+--
 -- Positive degrees indicate an upward lateral tilt in top-down image space.
+-- The horizontal span threshold @1e-12@ is measured in the input coordinate units.
 canthalTiltDeg :: Point2D -> Point2D -> Either String Double
 canthalTiltDeg medial lateral
+  | not (isFinitePoint medial && isFinitePoint lateral) =
+      Left "landmark coordinates must be finite"
   | dx <= 1e-12 = Left "medial and lateral x coordinates must differ"
   | otherwise   = Right (atan2 dyUp dx * (180.0 / pi))
   where
     dx   = abs (pointX lateral - pointX medial)
     dyUp = pointY medial - pointY lateral
 
--- | Compute vertical facial thirds from strictly increasing top-down Y values.
+-- | Compute vertical facial thirds from strictly increasing finite top-down Y values.
 computeFacialThirds
   :: Double -- ^ Trichion (hairline) Y coordinate
   -> Double -- ^ Glabella (brow midpoint) Y coordinate
@@ -69,6 +83,8 @@ computeFacialThirds
   -> Double -- ^ Menton (chin bottom) Y coordinate
   -> Either String FacialThirds
 computeFacialThirds trichionY glabellaY subnasaleY mentonY
+  | not (all isFinite [trichionY, glabellaY, subnasaleY, mentonY]) =
+      Left "y coordinates must be finite"
   | not (trichionY < glabellaY && glabellaY < subnasaleY && subnasaleY < mentonY) =
       Left "y coordinates must strictly increase from trichion to menton"
   | otherwise =
@@ -84,7 +100,10 @@ computeFacialThirds trichionY glabellaY subnasaleY mentonY
 -- | Compute @faceHeight / faceWidth@ and its signed deviation from 'phi'.
 goldenRatioDelta :: Double -> Double -> Either String GoldenRatioResult
 goldenRatioDelta faceHeight faceWidth
-  | faceHeight <= 0 || faceWidth <= 0 = Left "dimensions must be positive"
+  | not (isFinite faceHeight && isFinite faceWidth) =
+      Left "dimensions must be finite"
+  | faceHeight <= 0 || faceWidth <= 0 =
+      Left "dimensions must be positive"
   | otherwise =
       let ratio = faceHeight / faceWidth
        in Right (GoldenRatioResult ratio (ratio - phi))
@@ -97,7 +116,12 @@ bilateralSymmetry
   -> Either String Double
 bilateralSymmetry [] _ _ = Left "pairs must be non-empty"
 bilateralSymmetry pairs midlineX faceWidth
-  | faceWidth <= 0 = Left "faceWidth must be positive"
+  | not (isFinite midlineX && isFinite faceWidth) =
+      Left "midlineX and faceWidth must be finite"
+  | faceWidth <= 0 =
+      Left "faceWidth must be positive"
+  | not (all (\(LandmarkPair l r) -> isFinitePoint l && isFinitePoint r) pairs) =
+      Left "all landmark coordinates must be finite"
   | otherwise =
       let pairErr (LandmarkPair l r) =
             let mirroredLX = 2.0 * midlineX - pointX l
