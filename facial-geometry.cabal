@@ -1,0 +1,50 @@
+cabal-version:      2.4
+name:               facial-geometry
+version:            0.1.0.0
+synopsis:           Pure-math 2D facial landmark geometry metrics
+description:
+    Zero-dependency Haskell library for computing 2D facial landmark geometry
+    metrics in top-down image coordinates (X right, Y down):
+    .
+    * Medial-to-lateral canthal tilt angle in degrees
+    * Vertical facial thirds proportions and normalized balance score
+    * Face height-to-width ratio and signed golden ratio (@phi@) deviation
+    * Bilateral mirror symmetry score across paired landmarks
+    .
+    Reference formulas and interactive visual calculator:
+    <https://looksmaxscale.com/ Looksmax Scale>,
+    <https://looksmaxscale.com/canthal-tilt Canthal Tilt Measurement Guide>,
+    and <https://looksmaxscale.com/attractiveness-test Facial Proportion Reference>.
+
+homepage:           https://looksmaxscale.com/
+bug-reports:        https://github.com/visualcraft-lab/facial-geometry-hs/issues
+license:            MIT
+license-file:       LICENSE
+author:             VisualCraft Lab
+maintainer:         wzzhang96@gmail.com
+copyright:          2026 VisualCraft Lab
+category:           Math, Graphics
+extra-doc-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+    type:     git
+    location: https://github.com/visualcraft-lab/facial-geometry-hs.git
+
+library
+    exposed-modules:  Graphics.FacialGeometry
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:    base >= 4.14 && < 5
+
+test-suite facial-geometry-test
+    type:             exitcode-stdio-1.0
+    main-is:          Spec.hs
+    hs-source-dirs:   test
+    default-language: Haskell2010
+    ghc-options:      -Wall
+    build-depends:
+        base >= 4.14 && < 5,
+        facial-geometry
